@@ -32,6 +32,15 @@ def load_scrip_master():
         logger.error(f"❌ Error Loading Scrip Master: {e}")
         return []  # ✅ Return an empty list if request fails
 
+# ✅ Create Token-to-Symbol Mapping
+def create_token_to_symbol_mapping():
+    """Creates a dictionary mapping token to symbol for easy lookup."""
+    scrip_data = load_scrip_master()
+    return {s["token"]: s["symbol"] for s in scrip_data if s.get("instrumenttype") == "OPTIDX"}
+
+# ✅ Initialize Token-to-Symbol Mapping
+token_to_symbol = create_token_to_symbol_mapping()
+
 def get_nifty_option_chain(expiry=None):
     """Fetches and filters Nifty 50 option chain data."""
     scrip_data = load_scrip_master()
@@ -86,11 +95,23 @@ def on_data(wsapp, message):
     try:
         data = json.loads(message) if isinstance(message, str) else message
         token = data.get("token")
-        if not token:
+        if not token or token not in token_to_symbol:
             return
+
+        # ✅ Retrieve symbol & strike price from the token mapping
+        symbol = token_to_symbol[token]
+        try:
+            strike_price = float(symbol[-7:-2])  # Extract strike price from symbol
+        except ValueError:
+            strike_price = 0  # Fallback if parsing fails
+
+        option_type = "CE" if symbol.endswith("CE") else "PE"
 
         # ✅ Update Market Data
         option_chain_live_data[token].update({
+            "symbol": symbol,
+            "strike_price": strike_price,
+            "option_type": option_type,
             "ltp": float(data.get("last_traded_price", 0)) / 100,
             "bid": float(data.get("best_bid_price", 0)) / 100,
             "ask": float(data.get("best_ask_price", 0)) / 100,
@@ -98,9 +119,11 @@ def on_data(wsapp, message):
             "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         })
 
-        # ✅ Log Compact Live Update
-        logger.info(f"📊 Live Update | Token: {token} | LTP: {option_chain_live_data[token]['ltp']} "
-                    f"Bid: {option_chain_live_data[token]['bid']} Ask: {option_chain_live_data[token]['ask']}")
+        # ✅ Log Live Update
+        logger.info(f"📊 {symbol} | Strike: {strike_price} | {option_type} | "
+                    f"LTP: {option_chain_live_data[token]['ltp']} | "
+                    f"Bid: {option_chain_live_data[token]['bid']} | "
+                    f"Ask: {option_chain_live_data[token]['ask']}")
 
     except Exception as e:
         logger.error(f"❌ Error processing tick data: {e}")
