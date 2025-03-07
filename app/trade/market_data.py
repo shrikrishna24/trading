@@ -187,4 +187,4 @@ sws.on_close = on_close
 def start_market_data_feed():
     """Starts WebSocket connection for live tick data."""
     logger.info(f"🚀 Starting WebSocket for Tokens: {subscribed_tokens}")
-    sws.connect()
+    # sws.connect()
