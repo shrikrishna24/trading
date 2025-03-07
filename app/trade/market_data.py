@@ -39,39 +39,31 @@ def get_token_list():
 # ✅ Initialize WebSocket
 sws = SmartWebSocketV2(auth_token, api_key, client_code, feed_token)
 
-
-def get_historical_candles(symbol_token, exchange="NSE", interval="ONE_MINUTE", days=0):
+# ✅ Fetch Live Market Data Instead of Historical Data
+def get_market_data(token_list):
     """
-    Fetches historical candle data for the given token.
+    Fetches live market data for multiple tokens using `getMarketData()`.
     """
-    from datetime import datetime, timedelta
-
-    to_date = datetime.now().strftime("%Y-%m-%d %H:%M")
-    from_date = (datetime.now() - timedelta(days=days)).strftime("%Y-%m-%d %H:%M")
-    print(to_date, from_date, symbol_token)
     params = {
-        "exchange": exchange,
-        "symboltoken": symbol_token,
-        "interval": interval,
-        "fromdate": from_date,
-        "todate": to_date
+        "mode": "FULL",  # Options: "LTP", "QUOTE", "FULL"
+        "exchangeTokens": [{"exchangeType": 1, "tokens": token_list}]
     }
 
     try:
-        response = smart_api.getCandleData(params)
+        response = smart_api.getMarketData(params)
         if response and "data" in response:
             return response["data"]
         else:
-            logger.error(f"❌ No historical candle data for {symbol_token}.")
+            logger.error(f"❌ No live market data received for tokens: {token_list}")
             return []
     except Exception as e:
-        logger.error(f"❌ Error fetching historical data: {e}")
+        logger.error(f"❌ Error fetching live market data: {e}")
         return []
-
 
 # ✅ Store candles for multiple timeframes
 live_candles = {}
-last_logged_time={}
+last_logged_time = {}
+
 def update_live_candle(data):
     """
     Updates the live candle based on tick data in real-time (millisecond level).
@@ -161,15 +153,16 @@ def on_data(wsapp, message):
         logger.error(f"❌ Error processing tick data: {e}")
 
 def on_open(wsapp):
-    """Fetches historical candles and starts WebSocket streaming."""
-    logger.info("✅ Fetching historical data before WebSocket subscription...")
+    """Fetches real-time market data and starts WebSocket streaming."""
+    logger.info("✅ Fetching real-time market data before WebSocket subscription...")
 
-    for token in subscribed_tokens:
-        historical_candles = get_historical_candles(token)
-        if historical_candles:
-            logger.info(f"📜 Loaded {len(historical_candles)} historical candles for Token {token}.")
-        else:
-            logger.warning(f"⚠️ No historical candles found for Token {token}.")
+    market_data = get_market_data(subscribed_tokens)  # ✅ Fetch live data
+    if market_data:
+        for token_data in market_data:
+            token = token_data["token"]
+            logger.info(f"📊 LIVE Market Data | Token: {token} | "
+                        f"📈 O: {token_data['open']} H: {token_data['high']} "
+                        f"L: {token_data['low']} C: {token_data['close']}")
 
     logger.info("✅ WebSocket Connection Opened. Sending Subscription Request...")
     sws.subscribe(correlation_id, mode, get_token_list())  # ✅ Subscribe to live data
