@@ -57,6 +57,8 @@ def get_nifty_option_chain(expiry=None):
         logger.error("❌ No Nifty 50 options found.")
         return []
 
+    expiry = "13MAR2025"
+
     # ✅ Get nearest expiry if not provided
     if not expiry:
         expiry_dates = sorted(set(s["expiry"] for s in options))
