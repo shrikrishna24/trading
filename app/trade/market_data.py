@@ -3,7 +3,7 @@ from app.utils.utils import initialize_smart_api
 import json
 from logzero import logger
 from datetime import datetime, timedelta
-
+import redis
 from collections import defaultdict
 
 # ✅ Convert exchange timestamp from milliseconds to IST
@@ -23,6 +23,10 @@ mode = 1  # LTP Mode (Change to "FULL" if needed)
 
 # ✅ Token list (modifiable dynamically)
 subscribed_tokens = ["99926000"]  # Default empty list
+
+
+# ✅ Redis Connection (Pub/Sub)
+redis_client = redis.Redis(host="localhost", port=6379, db=0, decode_responses=True)
 
 # ✅ Function to update tokens dynamically
 def update_tokens(new_tokens):
@@ -109,6 +113,9 @@ def update_live_candle(data):
 
     # ✅ Log updated OHLC immediately
     last_logged_time[token] = current_minute  # Update last logged time
+
+    redis_client.publish(f"market_data:{token}", json.dumps(live_candles[token]))
+
     return live_candles[token]  # ✅ Return updated OHLC
 
 def close_connection():
@@ -144,10 +151,10 @@ def on_data(wsapp, message):
         # ✅ Update live candle and log immediately
         updated_candle = update_live_candle(data)
         
-        if updated_candle:  # ✅ Prevent NoneType access
-            logger.info(f"📊 Token: {data['token']} | 🕰 {updated_candle['timestamp']} | "
-                        f"📈 O: {updated_candle['open']} H: {updated_candle['high']} "
-                        f"L: {updated_candle['low']} C: {updated_candle['close']}")
+        # if updated_candle:  # ✅ Prevent NoneType access
+            # logger.info(f"📊 Token: {data['token']} | 🕰 {updated_candle['timestamp']} | "
+            #             f"📈 O: {updated_candle['open']} H: {updated_candle['high']} "
+            #             f"L: {updated_candle['low']} C: {updated_candle['close']}")
 
     except Exception as e:
         logger.error(f"❌ Error processing tick data: {e}")
@@ -187,4 +194,4 @@ sws.on_close = on_close
 def start_market_data_feed():
     """Starts WebSocket connection for live tick data."""
     logger.info(f"🚀 Starting WebSocket for Tokens: {subscribed_tokens}")
-    # sws.connect()
+    sws.connect()
