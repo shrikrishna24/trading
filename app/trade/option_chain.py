@@ -57,8 +57,6 @@ def get_nifty_option_chain(expiry=None):
         logger.error("❌ No Nifty 50 options found.")
         return []
 
-    expiry = "13MAR2025"
-
     # ✅ Get nearest expiry if not provided
     if not expiry:
         expiry_dates = sorted(set(s["expiry"] for s in options))
@@ -91,19 +89,6 @@ def subscribe_option_chain(expiry=None):
 
     logger.info(f"📡 Subscribed to {len(tokens)} Nifty 50 Option Contracts for Expiry: {expiry}")
 
-def save_option_chain_to_csv():
-    """Saves the option chain data to a CSV file."""
-    df = pd.DataFrame.from_dict(option_chain_live_data, orient="index")
-
-    # ✅ Add Timestamp Column
-    df["timestamp"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-
-    # ✅ Save to CSV
-    filename = "nifty_option_chain_live.csv"
-    df.to_csv(filename, index=False)
-    logger.info(f"📂 Saved Option Chain Data to {filename}")
-
-
 # ✅ WebSocket Handlers
 def on_data(wsapp, message):
     """Processes WebSocket tick data and updates market info."""
@@ -121,40 +106,24 @@ def on_data(wsapp, message):
             strike_price = 0  # Fallback if parsing fails
 
         option_type = "CE" if symbol.endswith("CE") else "PE"
-        expiry_date = "13MAR2025"  # Hardcoded expiry date
 
-        # ✅ If token exists, update only the changed fields
-        if token in option_chain_live_data:
-            existing_data = option_chain_live_data[token]
-
-            # ✅ Only update changed values, keep others constant
-            existing_data["ltp"] = float(data.get("last_traded_price", existing_data["ltp"])) / 100
-            existing_data["bid"] = float(data.get("best_bid_price", existing_data["bid"])) / 100
-            existing_data["ask"] = float(data.get("best_ask_price", existing_data["ask"])) / 100
-            existing_data["volume"] = data.get("total_traded_volume", existing_data["volume"])
-            existing_data["timestamp"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        else:
-            # ✅ Insert new row if token is not in live data
-            option_chain_live_data[token] = {
-                "expiry_date": expiry_date,
-                "symbol": symbol,
-                "strike_price": strike_price,
-                "option_type": option_type,
-                "ltp": float(data.get("last_traded_price", 0)) / 100,
-                "bid": float(data.get("best_bid_price", 0)) / 100,
-                "ask": float(data.get("best_ask_price", 0)) / 100,
-                "volume": data.get("total_traded_volume", 0),
-                "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            }
+        # ✅ Update Market Data
+        option_chain_live_data[token].update({
+            "symbol": symbol,
+            "strike_price": strike_price,
+            "option_type": option_type,
+            "ltp": float(data.get("last_traded_price", 0)) / 100,
+            "bid": float(data.get("best_bid_price", 0)) / 100,
+            "ask": float(data.get("best_ask_price", 0)) / 100,
+            "volume": data.get("total_traded_volume", 0),
+            "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        })
 
         # ✅ Log Live Update
-        logger.info(f"📊 {symbol} | Expiry: {expiry_date} | Strike: {strike_price} | {option_type} | "
+        logger.info(f"📊 {symbol} | Strike: {strike_price} | {option_type} | "
                     f"LTP: {option_chain_live_data[token]['ltp']} | "
                     f"Bid: {option_chain_live_data[token]['bid']} | "
                     f"Ask: {option_chain_live_data[token]['ask']}")
-
-        # ✅ Save Data to CSV
-        save_option_chain_to_csv()
 
     except Exception as e:
         logger.error(f"❌ Error processing tick data: {e}")

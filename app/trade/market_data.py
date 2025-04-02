@@ -46,7 +46,7 @@ sws = SmartWebSocketV2(auth_token, api_key, client_code, feed_token)
 # ✅ Fetch Live Market Data Instead of Historical Data
 def get_market_data(token_list):
     """
-    Fetches live market data for multiple tokens using `getMarketData()`.
+    Fetches live market data for multiple tokens using getMarketData().
     """
     params = {
         "mode": "FULL",  # Options: "LTP", "QUOTE", "FULL"
@@ -151,10 +151,10 @@ def on_data(wsapp, message):
         # ✅ Update live candle and log immediately
         updated_candle = update_live_candle(data)
         
-        # if updated_candle:  # ✅ Prevent NoneType access
-            # logger.info(f"📊 Token: {data['token']} | 🕰 {updated_candle['timestamp']} | "
-            #             f"📈 O: {updated_candle['open']} H: {updated_candle['high']} "
-            #             f"L: {updated_candle['low']} C: {updated_candle['close']}")
+        if updated_candle:  # ✅ Prevent NoneType access
+            logger.info(f"📊 Token: {data['token']} | 🕰 {updated_candle['timestamp']} | "
+                        f"📈 O: {updated_candle['open']} H: {updated_candle['high']} "
+                        f"L: {updated_candle['low']} C: {updated_candle['close']}")
 
     except Exception as e:
         logger.error(f"❌ Error processing tick data: {e}")
